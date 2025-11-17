@@ -6,6 +6,7 @@ import {
   Bot,
   LogOut,
   History,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -145,6 +146,19 @@ export const Sidebar = memo(({
             <span>Settings</span>
           </Button>
         </motion.div>
+        
+        {isAuthenticated && (
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/profile")}
+              className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+            >
+              <User className="h-5 w-5" />
+              <span>Profile</span>
+            </Button>
+          </motion.div>
+        )}
         
         {isAuthenticated ? (
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Download, Copy } from "lucide-react";
+import { Trash2, Download, Copy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -101,14 +101,25 @@ export const ImageLibrary = () => {
               exit={{ opacity: 0, scale: 0.9 }}
               className="group relative rounded-lg overflow-hidden bg-card border border-border hover:border-primary transition-all"
             >
-              <img
-                src={image.image_data || image.image_url}
-                alt={image.prompt}
-                className="w-full h-48 object-cover"
-              />
+              <div className="relative">
+                <img
+                  src={image.image_data || image.image_url}
+                  alt={image.prompt}
+                  className="w-full h-48 object-cover"
+                />
+                
+                {/* Watermark */}
+                <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-2 border border-primary/30">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                </div>
+              </div>
+              
               <div className="p-3">
                 <p className="text-sm text-foreground line-clamp-2 mb-2">
                   {image.prompt}
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Created by deta
                 </p>
                 <div className="flex items-center justify-between gap-2">
                   <Button
