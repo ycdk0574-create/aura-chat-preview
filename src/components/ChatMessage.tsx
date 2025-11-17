@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bot, User } from "lucide-react";
+import { Bot, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownContent } from "./MarkdownContent";
 import { motion } from "framer-motion";
@@ -147,13 +147,24 @@ export const ChatMessage = ({ message, index = 0 }: ChatMessageProps) => {
                   transition={{ duration: 0.8, delay: idx * 0.2 + 0.3 }}
                   className="relative rounded-lg md:rounded-xl max-w-full border border-primary/40 md:border-2 shadow-neon"
                 />
+                
+                {/* Watermark */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: idx * 0.2 + 1 }}
+                  className="absolute top-2 right-2 md:top-3 md:right-3 bg-background/80 backdrop-blur-sm rounded-full p-1.5 md:p-2 border border-primary/30"
+                >
+                  <Sparkles className="h-3 w-3 md:h-4 md:w-4 text-purple-500" />
+                </motion.div>
+                
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.2 + 0.8 }}
-                  className="mt-1.5 md:mt-2 text-[10px] md:text-xs text-center text-primary/70 font-medium"
+                  className="mt-1.5 md:mt-2 text-[10px] md:text-xs text-center text-muted-foreground font-medium"
                 >
-                  ✨ Created by Deta AI
+                  Created by deta
                 </motion.div>
               </motion.div>
             ))}
