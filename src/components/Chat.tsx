@@ -99,10 +99,18 @@ export const Chat = () => {
   // Check authentication
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
       setUser(session?.user ?? null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
       setUser(session?.user ?? null);
     });
 
