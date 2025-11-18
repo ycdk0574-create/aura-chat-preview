@@ -38,36 +38,6 @@ export type Database = {
         }
         Relationships: []
       }
-      discover_posts: {
-        Row: {
-          author_id: string
-          content: string
-          created_at: string | null
-          id: string
-          published: boolean | null
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          author_id: string
-          content: string
-          created_at?: string | null
-          id?: string
-          published?: boolean | null
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          author_id?: string
-          content?: string
-          created_at?: string | null
-          id?: string
-          published?: boolean | null
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       generated_images: {
         Row: {
           created_at: string | null
@@ -130,36 +100,6 @@ export type Database = {
           },
         ]
       }
-      personalities: {
-        Row: {
-          created_at: string | null
-          custom_instructions: string | null
-          id: string
-          personality_type: string | null
-          tone: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          custom_instructions?: string | null
-          id?: string
-          personality_type?: string | null
-          tone?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          custom_instructions?: string | null
-          id?: string
-          personality_type?: string | null
-          tone?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -187,42 +127,15 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -349,8 +262,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
+    Enums: {},
   },
 } as const
