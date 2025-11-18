@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, Bell, Globe, Shield, Download, Trash2, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Bell, Globe, Shield, Download, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,22 +133,6 @@ const Settings = () => {
                     onCheckedChange={setNotifications}
                   />
                 </div>
-                <Button
-                  onClick={() => navigate("/profile")}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  View Profile
-                </Button>
-                <Button
-                  onClick={() => navigate("/personality")}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Setup Personal
-                </Button>
               </CardContent>
             </Card>
           </motion.div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,27 +7,23 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Mail, Save, Camera } from "lucide-react";
+import { ArrowLeft, User, Mail, Save } from "lucide-react";
 import backgroundImage from "@/assets/background.png";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState({
     full_name: "",
     email: "",
-    avatar_url: "",
   });
   const [usageStats, setUsageStats] = useState({
     totalConversations: 0,
     totalMessages: 0,
     totalImages: 0,
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadUserData();
@@ -54,7 +50,6 @@ export default function Profile() {
         setProfile({
           full_name: profileData.full_name || "",
           email: profileData.email || currentUser.email || "",
-          avatar_url: profileData.avatar_url || "",
         });
       }
 
@@ -84,43 +79,6 @@ export default function Profile() {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error("Please upload an image file");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            avatar_url: base64,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id);
-
-        if (error) throw error;
-        
-        setProfile({ ...profile, avatar_url: base64 });
-        toast.success("Avatar updated successfully");
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      toast.error("Failed to upload avatar");
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -186,37 +144,6 @@ export default function Profile() {
                   Personal Information
                 </h2>
                 <div className="space-y-4">
-                  {/* Avatar Upload */}
-                  <div className="flex flex-col items-center mb-6">
-                    <div className="relative">
-                      <Avatar className="h-24 w-24">
-                        <AvatarImage src={profile.avatar_url} />
-                        <AvatarFallback>
-                          <User className="h-12 w-12" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarUpload}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {uploading ? "Uploading..." : "Click camera to change avatar"}
-                    </p>
-                  </div>
-
                   <div>
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input

@@ -2,7 +2,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bot, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownContent } from "./MarkdownContent";
-import { MessageActions } from "./MessageActions";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
@@ -19,12 +18,9 @@ interface Message {
 interface ChatMessageProps {
   message: Message;
   index?: number;
-  onEdit?: (id: string, newContent: string) => void;
-  onDelete?: (id: string) => void;
-  onRegenerate?: (id: string) => void;
 }
 
-export const ChatMessage = ({ message, index = 0, onEdit, onDelete, onRegenerate }: ChatMessageProps) => {
+export const ChatMessage = ({ message, index = 0 }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const [displayedContent, setDisplayedContent] = useState("");
   const [isTypingComplete, setIsTypingComplete] = useState(isUser);
@@ -89,7 +85,7 @@ export const ChatMessage = ({ message, index = 0, onEdit, onDelete, onRegenerate
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
         className={cn(
-          "max-w-[85%] md:max-w-[80%] rounded-2xl px-3 py-3 md:px-5 md:py-4 transition-smooth group",
+          "max-w-[85%] md:max-w-[80%] rounded-2xl px-3 py-3 md:px-5 md:py-4 transition-smooth",
           isUser
             ? "bg-card/60 border border-muted/50 glow-border"
             : "bg-card/40 border border-primary/30 glow-border shadow-glow"
@@ -113,15 +109,6 @@ export const ChatMessage = ({ message, index = 0, onEdit, onDelete, onRegenerate
             </>
           )}
         </div>
-
-        <MessageActions
-          messageId={message.id}
-          content={message.content}
-          isUser={isUser}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onRegenerate={onRegenerate}
-        />
         
         {message.images && message.images.length > 0 && (
           <motion.div
