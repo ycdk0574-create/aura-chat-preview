@@ -7,12 +7,14 @@ import {
   LogOut,
   History,
   User,
+  Compass,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ConversationHistory } from "./ConversationHistory";
 import { useNavigate } from "react-router-dom";
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +41,23 @@ export const Sidebar = memo(({
   onLibraryOpen,
 }: SidebarProps) => {
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkAdmin();
+  }, []);
+
+  const checkAdmin = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+
+    setIsAdmin(data?.some(r => r.role === "admin") || false);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -110,6 +129,18 @@ export const Sidebar = memo(({
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
                 variant="ghost"
+                onClick={() => navigate("/discover")}
+                className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+                title="Discover"
+              >
+                <Compass className="h-5 w-5" />
+                <span>Discover</span>
+              </Button>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="ghost"
                 className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all relative"
                 title="AI Agent"
               >
@@ -118,6 +149,20 @@ export const Sidebar = memo(({
                 <Badge variant="secondary" className="ml-auto text-xs">Soon</Badge>
               </Button>
             </motion.div>
+
+            {isAdmin && (
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate("/admin")}
+                  className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+                  title="Admin Panel"
+                >
+                  <Shield className="h-5 w-5" />
+                  <span>Admin Panel</span>
+                </Button>
+              </motion.div>
+            )}
           </div>
 
           <motion.div 
