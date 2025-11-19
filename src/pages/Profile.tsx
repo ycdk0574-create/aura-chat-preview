@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { ArrowLeft, User, Mail, Save } from "lucide-react";
 import backgroundImage from "@/assets/background.png";
+import { z } from "zod";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -85,19 +86,34 @@ export default function Profile() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Validate input
+      const profileSchema = z.object({
+        full_name: z.string()
+          .trim()
+          .min(1, "Name cannot be empty")
+          .max(100, "Name must be less than 100 characters")
+          .regex(/^[a-zA-Z\u0590-\u05FF\s'-]+$/, "Name contains invalid characters")
+      });
+
+      const validated = profileSchema.parse({ full_name: profile.full_name });
+
       const { error } = await supabase
         .from("profiles")
         .update({
-          full_name: profile.full_name,
+          full_name: validated.full_name,
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
 
       if (error) throw error;
       toast.success("Profile updated successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      toast.error("Failed to update profile");
+      if (error.name === "ZodError") {
+        toast.error(error.issues[0].message);
+      } else {
+        toast.error("Failed to update profile");
+      }
     } finally {
       setSaving(false);
     }

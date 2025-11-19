@@ -59,6 +59,7 @@ export const Chat = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [user, setUser] = useState<User | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -104,6 +105,7 @@ export const Chat = () => {
         return;
       }
       setUser(session?.user ?? null);
+      setSessionToken(session?.access_token ?? null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -112,6 +114,7 @@ export const Chat = () => {
         return;
       }
       setUser(session?.user ?? null);
+      setSessionToken(session?.access_token ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -360,6 +363,7 @@ export const Chat = () => {
         })),
         model: selectedModel,
         abortSignal: abortControllerRef.current?.signal,
+        sessionToken: sessionToken || undefined,
         onDelta: upsertAssistant,
         onImage: async (imgUrl) => {
           // No restrictions - everyone can generate unlimited images
@@ -556,6 +560,7 @@ export const Chat = () => {
         messages: newMessages.map(m => ({ role: m.role, content: m.content })),
         model: selectedModel,
         abortSignal: abortControllerRef.current?.signal,
+        sessionToken: sessionToken || undefined,
         onDelta: upsertAssistant,
         onImage: (imgUrl) => {
           // No restrictions - everyone can generate unlimited images
@@ -771,7 +776,6 @@ export const Chat = () => {
                   <SelectItem value="LPT-2.5">LPT-2.5 💬</SelectItem>
                   <SelectItem value="LPT-3">LPT-3 🌐</SelectItem>
                   <SelectItem value="LPT-3.5">LPT-3.5 🚀</SelectItem>
-                  <SelectItem value="LPT-4">LPT-4 ✨ NEW</SelectItem>
                 </SelectContent>
               </Select>
             </div>

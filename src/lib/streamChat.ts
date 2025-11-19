@@ -12,6 +12,7 @@ export async function streamChat({
   onSources,
   onDone,
   onError,
+  sessionToken,
 }: {
   messages: Array<{ 
     role: "user" | "assistant"; 
@@ -25,6 +26,7 @@ export async function streamChat({
   onSources?: (sources: Array<{ title: string; link: string; snippet: string }>) => void;
   onDone: () => void;
   onError?: (error: string) => void;
+  sessionToken?: string;
 }) {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -50,7 +52,7 @@ export async function streamChat({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${sessionToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ messages: formattedMessages, model }),
       signal: abortSignal,
