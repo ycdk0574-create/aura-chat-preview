@@ -7,6 +7,7 @@ import {
   LogOut,
   History,
   User,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -104,6 +105,18 @@ export const Sidebar = memo(({
               >
                 <Library className="h-5 w-5" />
                 <span>Library</span>
+              </Button>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/discover")}
+                className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+                title="Discover"
+              >
+                <Compass className="h-5 w-5" />
+                <span>Discover</span>
               </Button>
             </motion.div>
 
