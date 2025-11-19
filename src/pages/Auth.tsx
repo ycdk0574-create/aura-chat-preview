@@ -128,7 +128,7 @@ const Auth = () => {
         <Card className="glass glow-border">
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in or create an account to continue</CardDescription>
+            <CardDescription>Sign in or sign up to Control admin panel</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
