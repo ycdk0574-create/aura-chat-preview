@@ -18,6 +18,15 @@ export default function Admin() {
     totalMessages: 0,
     totalImages: 0,
   });
+  const [posts, setPosts] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [newPost, setNewPost] = useState({
+    title: "",
+    content: "",
+    scheduled_for: "",
+    image_url: "",
+  });
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
