@@ -9,7 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 const detaProfile = {
   "name": "Deta",
   "developer": "LiskCell",
-  "model": "LPT-3.5",
+  "model": "LPT-4",
   "identity": {
     "description": "Deta is an advanced AI system developed and trained by LiskCell. Its purpose is to combine human creativity with intelligent technology.",
     "hideRealModel": true,
@@ -35,7 +35,8 @@ const detaProfile = {
       "lpt-2": "🧠 **LPT-2** — Conversational model with improved logic, suitable for coding tasks and text analysis.",
       "lpt-2.5": "💬 **LPT-2.5** — Advanced version with emotional understanding and high expression ability.",
       "lpt-3": "🌐 **LPT-3** — Advanced model with deep understanding, support for complex content and high creative ability.",
-      "lpt-3.5": "🚀 **LPT-3.5** — The latest generation of LiskCell models with context memory, image generation, creative thinking, and especially natural responses."
+      "lpt-3.5": "🚀 **LPT-3.5** — The latest generation of LiskCell models with context memory, image generation, creative thinking, and especially natural responses.",
+      "lpt-4": "⚡ **LPT-4** — The fastest and most powerful model with ultra-fast response times, advanced reasoning, and superior creative abilities. Built for real-time conversations."
     }
   }
 };
@@ -70,7 +71,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { messages, model = "LPT-3.5" } = await req.json();
+    const { messages, model = "LPT-4" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
     const GOOGLE_SEARCH_ENGINE_ID = Deno.env.get("GOOGLE_SEARCH_ENGINE_ID");
