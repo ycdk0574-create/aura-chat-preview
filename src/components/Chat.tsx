@@ -64,7 +64,7 @@ export const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("LPT-4");
+  const [selectedModel, setSelectedModel] = useState("LPT-3.5");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [detaStatus, setDetaStatus] = useState<string | null>(null);
@@ -770,12 +770,13 @@ export const Chat = () => {
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LPT-1">LPT-1 ⚙️</SelectItem>
-                  <SelectItem value="LPT-1.5">LPT-1.5 ⚡</SelectItem>
-                  <SelectItem value="LPT-2">LPT-2 🧠</SelectItem>
-                  <SelectItem value="LPT-2.5">LPT-2.5 💬</SelectItem>
-                  <SelectItem value="LPT-3">LPT-3 🌐</SelectItem>
-                  <SelectItem value="LPT-3.5">LPT-3.5 🚀</SelectItem>
+                  <SelectItem value="LPT-1">LPT-1 ⚙️ Small & Fast</SelectItem>
+                  <SelectItem value="LPT-1.5">LPT-1.5 ⚡ Fast</SelectItem>
+                  <SelectItem value="LPT-2">LPT-2 🧠 Medium & Balanced</SelectItem>
+                  <SelectItem value="LPT-2.5">LPT-2.5 💬 Medium</SelectItem>
+                  <SelectItem value="LPT-3">LPT-3 🌐 Large</SelectItem>
+                  <SelectItem value="LPT-3.5">LPT-3.5 🚀 Large & Smart</SelectItem>
+                  <SelectItem value="LPT-4">LPT-4 ⭐ Largest & Slow</SelectItem>
                 </SelectContent>
               </Select>
             </div>

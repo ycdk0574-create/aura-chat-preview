@@ -7,18 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Mail, Save } from "lucide-react";
+import { ArrowLeft, User, Mail, Save, Upload, Camera } from "lucide-react";
 import backgroundImage from "@/assets/background.png";
 import { z } from "zod";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState({
     full_name: "",
     email: "",
+    avatar_url: "",
   });
   const [usageStats, setUsageStats] = useState({
     totalConversations: 0,
@@ -51,6 +54,7 @@ export default function Profile() {
         setProfile({
           full_name: profileData.full_name || "",
           email: profileData.email || currentUser.email || "",
+          avatar_url: profileData.avatar_url || "",
         });
       }
 
@@ -80,6 +84,60 @@ export default function Profile() {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Create unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      const avatarUrl = data.publicUrl;
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile(prev => ({ ...prev, avatar_url: avatarUrl }));
+      toast.success("Profile picture updated successfully");
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      toast.error(error.message || "Failed to upload avatar");
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -159,6 +217,41 @@ export default function Profile() {
                   <User className="h-5 w-5 text-primary" />
                   Personal Information
                 </h2>
+                
+                {/* Avatar Upload Section */}
+                <div className="flex flex-col items-center mb-6">
+                  <div className="relative">
+                    <Avatar className="h-32 w-32 border-4 border-primary/20">
+                      {profile.avatar_url ? (
+                        <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />
+                      ) : (
+                        <AvatarFallback className="bg-primary/10 text-primary text-3xl">
+                          {profile.full_name ? profile.full_name[0].toUpperCase() : <User className="h-12 w-12" />}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 cursor-pointer">
+                      <div className="bg-primary hover:bg-primary/90 p-2 rounded-full shadow-lg transition-colors">
+                        <Camera className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        disabled={uploadingAvatar}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  {uploadingAvatar && (
+                    <p className="text-sm text-muted-foreground mt-2">Uploading...</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Click camera icon to change profile picture
+                  </p>
+                </div>
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="full_name">Full Name</Label>
