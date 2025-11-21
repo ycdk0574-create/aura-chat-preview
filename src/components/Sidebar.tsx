@@ -8,12 +8,14 @@ import {
   History,
   User,
   Compass,
+  Shield,
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ConversationHistory } from "./ConversationHistory";
 import { useNavigate } from "react-router-dom";
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,35 @@ export const Sidebar = memo(({
   onLibraryOpen,
 }: SidebarProps) => {
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const checkAdminRole = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
+
+        setIsAdmin(!!data);
+      } catch (error) {
+        console.error('Error checking admin role:', error);
+      }
+    };
+
+    checkAdminRole();
+  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     try {
@@ -61,7 +92,7 @@ export const Sidebar = memo(({
         {/* Header */}
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
-            {/* Sparkles Logo */}
+            {/* Logo Image */}
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ 
@@ -71,7 +102,7 @@ export const Sidebar = memo(({
               }}
               className="flex items-center justify-center"
             >
-              <Sparkles className="h-8 w-8 text-primary" />
+              <img src={logo} alt="Deta Logo" className="h-8 w-8" />
             </motion.div>
 
             {/* Logo Text */}
@@ -169,6 +200,19 @@ export const Sidebar = memo(({
             >
               <User className="h-5 w-5" />
               <span>Profile</span>
+            </Button>
+          </motion.div>
+        )}
+        
+        {isAdmin && (
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/admin")}
+              className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+            >
+              <Shield className="h-5 w-5" />
+              <span>Admin Panel</span>
             </Button>
           </motion.div>
         )}

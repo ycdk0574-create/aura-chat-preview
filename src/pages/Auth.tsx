@@ -8,14 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Shield } from "lucide-react";
 import backgroundImage from "@/assets/background.png";
+import logo from "@/assets/logo.png";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -25,6 +27,29 @@ const Auth = () => {
       }
     });
   }, [navigate]);
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
+
+        setIsAdmin(!!data);
+      } catch (error) {
+        // User is not admin
+      }
+    };
+    
+    checkAdmin();
+  }, []);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +145,7 @@ const Auth = () => {
             animate={{ rotate: 360 }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Sparkles className="h-12 w-12 text-primary" />
+            <img src={logo} alt="Deta Logo" className="h-12 w-12" />
           </motion.div>
           <h1 className="text-4xl font-bold text-white">Deta AI</h1>
         </div>
@@ -131,6 +156,17 @@ const Auth = () => {
             <CardDescription>Sign in or sign up to Control admin panel</CardDescription>
           </CardHeader>
           <CardContent>
+            {isAdmin && (
+              <Button
+                onClick={() => navigate("/admin")}
+                variant="outline"
+                className="w-full mb-4 gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Go to Admin Control Panel
+              </Button>
+            )}
+            
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
