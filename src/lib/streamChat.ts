@@ -48,11 +48,16 @@ export async function streamChat({
   });
 
   try {
+    if (!sessionToken) {
+      onError?.("Authentication required. Please log in.");
+      return;
+    }
+
     const resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${sessionToken}`,
       },
       body: JSON.stringify({ messages: formattedMessages, model }),
       signal: abortSignal,
