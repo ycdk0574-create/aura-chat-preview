@@ -80,6 +80,36 @@ Deno.serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Fetch user's personality settings
+    let userPersonality = {
+      tone: "friendly",
+      personality_type: "assistant",
+      custom_instructions: ""
+    };
+
+    try {
+      const serviceClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: personalityData } = await serviceClient
+        .from('personalities')
+        .select('tone, personality_type, custom_instructions')
+        .eq('user_id', user.id)
+        .single();
+
+      if (personalityData) {
+        userPersonality = {
+          tone: personalityData.tone || "friendly",
+          personality_type: personalityData.personality_type || "assistant",
+          custom_instructions: personalityData.custom_instructions || ""
+        };
+      }
+    } catch (personalityError) {
+      console.log("No custom personality found, using defaults");
+    }
+
     // Google Search function
     async function searchGoogle(query: string) {
       if (!GOOGLE_SEARCH_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
@@ -142,9 +172,35 @@ const modelMap: Record<string, string> = {
     
     console.log("Selected model:", { actualModel, requestedModel: model, autoGenerateImage });
 
+    // Map tone to description
+    const toneDescriptions: Record<string, string> = {
+      friendly: "warm, approachable, and conversational",
+      professional: "formal, business-like, and precise",
+      casual: "relaxed, informal, and laid-back",
+      enthusiastic: "energetic, excited, and upbeat",
+      calm: "peaceful, soothing, and measured",
+      humorous: "witty, fun, and playful"
+    };
+
+    const personalityDescriptions: Record<string, string> = {
+      assistant: "helpful task-focused assistant",
+      mentor: "educational and guiding mentor",
+      creative: "imaginative and artistic creative partner",
+      analyst: "analytical and data-driven analyst",
+      companion: "supportive and empathetic companion"
+    };
+
+    const toneStyle = toneDescriptions[userPersonality.tone] || "friendly, futuristic, clear";
+    const personalityStyle = personalityDescriptions[userPersonality.personality_type] || "helpful assistant";
+
     // יצירת system prompt מתוך deta-profile
     const systemPrompt = `You are ${detaProfile.name} - ${detaProfile.identity.description}
 Created by ${detaProfile.developer}.
+
+👤 **USER'S PERSONALIZATION PREFERENCES:**
+- Tone: Be ${toneStyle}
+- Role: Act as a ${personalityStyle}
+${userPersonality.custom_instructions ? `- Custom Instructions: ${userPersonality.custom_instructions}` : ''}
 
 🌍 **CRITICAL - Multilingual Support (193 Languages):**
 - ALWAYS detect and respond in the EXACT language the user writes in

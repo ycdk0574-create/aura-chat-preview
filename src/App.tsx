@@ -9,6 +9,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Discover from "./pages/Discover";
+import Personality from "./pages/Personality";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/discover" element={<Discover />} />
+          <Route path="/personality" element={<Personality />} />
           {/* Catch-all route for 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
