@@ -9,6 +9,7 @@ import {
   User,
   Compass,
   Shield,
+  Palette,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
@@ -192,16 +193,28 @@ export const Sidebar = memo(({
         </motion.div>
         
         {isAuthenticated && (
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/profile")}
-              className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
-            >
-              <User className="h-5 w-5" />
-              <span>Profile</span>
-            </Button>
-          </motion.div>
+          <>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/profile")}
+                className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+              >
+                <User className="h-5 w-5" />
+                <span>Profile</span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/personality")}
+                className="w-full justify-start gap-3 hover:bg-sidebar-accent hover:text-primary transition-all"
+              >
+                <Palette className="h-5 w-5" />
+                <span>Personality</span>
+              </Button>
+            </motion.div>
+          </>
         )}
         
         {isAdmin && (
