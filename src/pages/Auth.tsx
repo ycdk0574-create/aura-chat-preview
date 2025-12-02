@@ -200,6 +200,14 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Signing in..." : "Sign In"}
                   </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin-auth")}
+                    className="w-full text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Team member? <span className="underline">Go to Admin Panel</span>
+                  </button>
                   
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
