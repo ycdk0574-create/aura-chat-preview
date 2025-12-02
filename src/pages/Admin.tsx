@@ -3,9 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Shield, Users, MessageSquare, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Shield, Users, MessageSquare, Image as ImageIcon, UserPlus, Trash2 } from "lucide-react";
 import backgroundImage from "@/assets/background.png";
 
 export default function Admin() {
@@ -20,6 +29,10 @@ export default function Admin() {
   });
   const [posts, setPosts] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [userRoles, setUserRoles] = useState<any[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminRole, setNewAdminRole] = useState<"admin" | "user">("admin");
+  const [addingUser, setAddingUser] = useState(false);
   const [newPost, setNewPost] = useState({
     title: "",
     content: "",
@@ -56,6 +69,7 @@ export default function Admin() {
 
       setIsAdmin(true);
       loadStats();
+      loadUserRoles();
     } catch (error) {
       console.error("Error checking admin access:", error);
       navigate("/chat");
@@ -99,6 +113,110 @@ export default function Admin() {
     } catch (error) {
       console.error("Error loading stats:", error);
       toast.error("Failed to load statistics");
+    }
+  };
+
+  const loadUserRoles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select(`
+          id,
+          user_id,
+          role,
+          created_at
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get profile info for each user
+      const userIds = data?.map(r => r.user_id) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", userIds);
+
+      const rolesWithProfiles = data?.map(role => ({
+        ...role,
+        profile: profiles?.find(p => p.id === role.user_id)
+      })) || [];
+
+      setUserRoles(rolesWithProfiles);
+    } catch (error) {
+      console.error("Error loading user roles:", error);
+    }
+  };
+
+  const handleAddUserRole = async () => {
+    if (!newAdminEmail.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setAddingUser(true);
+    try {
+      // Find user by email in profiles
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("email", newAdminEmail.trim())
+        .single();
+
+      if (profileError || !profile) {
+        toast.error("User not found. Make sure the user has signed up first.");
+        return;
+      }
+
+      // Check if role already exists
+      const { data: existingRole } = await supabase
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", profile.id)
+        .eq("role", newAdminRole)
+        .single();
+
+      if (existingRole) {
+        toast.error("User already has this role");
+        return;
+      }
+
+      // Add role
+      const { error: insertError } = await supabase
+        .from("user_roles")
+        .insert({
+          user_id: profile.id,
+          role: newAdminRole
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success(`${newAdminRole === 'admin' ? 'Admin' : 'User'} role added successfully!`);
+      setNewAdminEmail("");
+      loadUserRoles();
+    } catch (error: any) {
+      console.error("Error adding role:", error);
+      toast.error(error.message || "Failed to add role");
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
+  const handleRemoveRole = async (roleId: string) => {
+    if (!confirm("Are you sure you want to remove this role?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("id", roleId);
+
+      if (error) throw error;
+
+      toast.success("Role removed successfully");
+      loadUserRoles();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove role");
     }
   };
 
@@ -227,6 +345,92 @@ export default function Admin() {
                 You have full administrative access to the system. This panel displays
                 real-time statistics about user activity and system usage.
               </p>
+            </Card>
+          </motion.div>
+
+          {/* User Management */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+            className="mt-8"
+          >
+            <Card className="p-6 glass">
+              <div className="flex items-center gap-3 mb-6">
+                <UserPlus className="h-6 w-6 text-primary" />
+                <h2 className="text-xl font-semibold">User Management</h2>
+              </div>
+
+              {/* Add User Form */}
+              <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-background/50 rounded-lg">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="user-email">User Email</Label>
+                  <Input
+                    id="user-email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                  />
+                </div>
+                <div className="w-full md:w-40 space-y-2">
+                  <Label htmlFor="user-role">Role</Label>
+                  <Select value={newAdminRole} onValueChange={(v: "admin" | "user") => setNewAdminRole(v)}>
+                    <SelectTrigger id="user-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="user">User</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button 
+                    onClick={handleAddUserRole} 
+                    disabled={addingUser}
+                    className="gradient-primary"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {addingUser ? "Adding..." : "Add Role"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Users List */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">Current Users with Roles</h3>
+                {userRoles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No users with special roles yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userRoles.map((userRole) => (
+                      <div 
+                        key={userRole.id} 
+                        className="flex items-center justify-between p-3 bg-background/50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${userRole.role === 'admin' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+                          <div>
+                            <p className="font-medium">{userRole.profile?.email || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {userRole.profile?.full_name || 'No name'} · {userRole.role}
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleRemoveRole(userRole.id)}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </Card>
           </motion.div>
         </div>

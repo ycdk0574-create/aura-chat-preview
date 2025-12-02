@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Chat from "./pages/Chat";
 import Auth from "./pages/Auth";
+import AdminAuth from "./pages/AdminAuth";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
@@ -21,8 +22,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Auth page */}
+          {/* Auth pages */}
           <Route path="/auth" element={<Auth />} />
+          <Route path="/admin-auth" element={<AdminAuth />} />
           {/* Chat is the main window - redirect root to chat */}
           <Route path="/" element={<Navigate to="/chat" replace />} />
           <Route path="/chat" element={<Chat />} />
