@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { NewPostModal } from "@/components/NewPostModal";
 
 interface DiscoverPost {
   id: string;
@@ -22,6 +23,7 @@ const Discover = () => {
   const [posts, setPosts] = useState<DiscoverPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showNewPostModal, setShowNewPostModal] = useState(false);
 
   useEffect(() => {
     loadPosts();
@@ -63,6 +65,34 @@ const Discover = () => {
     }
   };
 
+  const handleCreatePost = async (post: { title: string; content: string; image_url?: string }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please login to create posts");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("discover_posts")
+        .insert({
+          title: post.title,
+          content: post.content,
+          image_url: post.image_url || null,
+          author_id: user.id,
+          published: true,
+        });
+
+      if (error) throw error;
+      
+      toast.success("Post created successfully!");
+      loadPosts();
+    } catch (error: any) {
+      toast.error("Failed to create post");
+      console.error("Error creating post:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -79,15 +109,13 @@ const Discover = () => {
             </Button>
             <h1 className="text-2xl font-bold text-foreground">Discover</h1>
           </div>
-          {isAdmin && (
-            <Button
-              onClick={() => navigate("/admin")}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              New Post
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowNewPostModal(true)}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            New Post
+          </Button>
         </div>
       </header>
 
@@ -136,6 +164,14 @@ const Discover = () => {
           </div>
         )}
       </main>
+
+      {/* New Post Modal */}
+      <NewPostModal
+        open={showNewPostModal}
+        onOpenChange={setShowNewPostModal}
+        isAdmin={isAdmin}
+        onCreatePost={handleCreatePost}
+      />
     </div>
   );
 };

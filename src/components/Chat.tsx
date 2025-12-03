@@ -5,13 +5,14 @@ import backgroundImage from "@/assets/background.png";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Zap, Send, Sparkles, Paperclip, Mic, X, Square, Code2, Search, Image as ImageIcon, Brain, BookOpen, Lightbulb, RefreshCw, Trash2, MicOff, Menu, Copy } from "lucide-react";
+import { Zap, Send, Sparkles, Paperclip, Mic, X, Square, Code2, Search, Image as ImageIcon, Brain, BookOpen, Lightbulb, RefreshCw, Trash2, MicOff, Menu, Copy, Phone } from "lucide-react";
 import { ChatMessage } from "./ChatMessage";
 import { streamChat } from "@/lib/streamChat";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "./Sidebar";
 import { ImageLibrary } from "./ImageLibrary";
+import { VoiceChat } from "./VoiceChat";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -74,6 +75,7 @@ export const Chat = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -765,18 +767,27 @@ export const Chat = () => {
 
             {/* Model Selector - Right Side */}
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVoiceChatOpen(true)}
+                className="glow-border bg-card/50 h-8 md:h-10 px-3"
+              >
+                <Phone className="h-4 w-4 mr-1" />
+                <span className="hidden md:inline">Voice</span>
+              </Button>
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger className="w-[100px] md:w-[140px] glow-border bg-card/50 text-xs md:text-sm h-8 md:h-10">
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LPT-1">LPT-1 ⚙️ Small & Fast</SelectItem>
-                  <SelectItem value="LPT-1.5">LPT-1.5 ⚡ Fast</SelectItem>
-                  <SelectItem value="LPT-2">LPT-2 🧠 Medium & Balanced</SelectItem>
-                  <SelectItem value="LPT-2.5">LPT-2.5 💬 Medium</SelectItem>
-                  <SelectItem value="LPT-3">LPT-3 🌐 Large</SelectItem>
-                  <SelectItem value="LPT-3.5">LPT-3.5 🚀 Large & Smart</SelectItem>
-                  <SelectItem value="LPT-4">LPT-4 ⭐ Largest & Slow</SelectItem>
+                  <SelectItem value="LPT-1">LPT-1 - Small & Fast</SelectItem>
+                  <SelectItem value="LPT-1.5">LPT-1.5 - Fast</SelectItem>
+                  <SelectItem value="LPT-2">LPT-2 - Medium & Balanced</SelectItem>
+                  <SelectItem value="LPT-2.5">LPT-2.5 - Medium</SelectItem>
+                  <SelectItem value="LPT-3">LPT-3 - Large</SelectItem>
+                  <SelectItem value="LPT-3.5">LPT-3.5 - Large & Smart</SelectItem>
+                  <SelectItem value="LPT-4">LPT-4 - Gemini 3 Class</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -976,6 +987,9 @@ export const Chat = () => {
           </DrawerContent>
         </Drawer>
       )}
+
+      {/* Voice Chat */}
+      <VoiceChat isOpen={voiceChatOpen} onClose={() => setVoiceChatOpen(false)} />
     </div>
   );
 };
