@@ -87,34 +87,33 @@ export const Sidebar = memo(({
 
   return (
     <aside
-      className="h-screen w-64 bg-sidebar-background border-r border-sidebar-border flex flex-col justify-between"
+      className="h-screen w-64 bg-sidebar-background border-r border-sidebar-border flex flex-col"
     >
-      <div>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            {/* Logo Image */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ 
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-              className="flex items-center justify-center"
-            >
-              <img src={logo} alt="Deta Logo" className="h-8 w-8" />
-            </motion.div>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Logo Image */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="flex items-center justify-center"
+          >
+            <img src={logo} alt="Deta Logo" className="h-8 w-8" />
+          </motion.div>
 
-            {/* Logo Text */}
-            <h1 className="text-2xl font-bold text-foreground">
-              Deta
-            </h1>
-          </div>
+          {/* Logo Text */}
+          <h1 className="text-2xl font-bold text-foreground">
+            Deta
+          </h1>
         </div>
+      </div>
 
-        {/* Navigation */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Navigation */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-2 space-y-2 pb-2">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
@@ -177,10 +176,9 @@ export const Sidebar = memo(({
             />
           </motion.div>
         </div>
-      </div>
 
       {/* Footer */}
-      <div className="p-2 space-y-2">
+      <div className="p-2 space-y-2 flex-shrink-0">
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
             variant="ghost"
