@@ -73,13 +73,16 @@ serve(async (req) => {
       throw new Error('GEMINI_API_KEY is not set');
     }
 
-    const { messages, model = "gemini-2.0-flash-exp" } = await req.json();
+    const { messages, model = "gemini-2.0-flash-exp", systemPrompt } = await req.json();
+
+    // Use custom system prompt if provided, otherwise use default
+    const finalSystemPrompt = systemPrompt || DETA_AI_SYSTEM_INSTRUCTION;
 
     const contents = [];
     
     contents.push({
       role: "user",
-      parts: [{ text: DETA_AI_SYSTEM_INSTRUCTION }]
+      parts: [{ text: finalSystemPrompt }]
     });
     contents.push({
       role: "model",
