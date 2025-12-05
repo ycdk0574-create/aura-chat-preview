@@ -1,289 +1,74 @@
-import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Phone, PhoneOff, Volume2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Volume2, Monitor, MonitorOff, MessageSquare, Cpu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import AudioVisualizer from "./AudioVisualizer";
-
-// TypeScript declarations for Web Speech API
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
+import { useLiveApi } from "@/hooks/useLiveApi";
+import { ConnectionState } from "@/types/voiceChat";
+import { cn } from "@/lib/utils";
 
 interface VoiceChatProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+// Emote shape configurations
+const emoteShapes: Record<string, { borderRadius: string; scale: number; rotate: number }> = {
+  neutral: { borderRadius: '50%', scale: 1, rotate: 0 },
+  happy: { borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%', scale: 1.1, rotate: 0 },
+  heart: { borderRadius: '50% 50% 50% 50%', scale: 1.15, rotate: 0 },
+  sad: { borderRadius: '50% 50% 40% 40%', scale: 0.95, rotate: 0 },
+  thinking: { borderRadius: '50%', scale: 1.05, rotate: 15 },
+  angry: { borderRadius: '30% 30% 50% 50%', scale: 1.1, rotate: -5 },
+  cool: { borderRadius: '20%', scale: 1.05, rotate: 0 },
+  idea: { borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%', scale: 1.1, rotate: 0 },
+  sleep: { borderRadius: '50%', scale: 0.9, rotate: 0 },
+  silly: { borderRadius: '40% 60% 60% 40% / 60% 40% 60% 40%', scale: 1.1, rotate: 10 }
+};
+
+// Theme color configurations
+const themeColors: Record<string, { primary: string; secondary: string; glow: string }> = {
+  default: { primary: 'from-primary via-primary/70 to-secondary', secondary: 'rgba(168, 85, 247, 0.5)', glow: 'rgba(168, 85, 247, 0.5)' },
+  blue: { primary: 'from-blue-500 via-blue-400 to-cyan-400', secondary: 'rgba(59, 130, 246, 0.5)', glow: 'rgba(59, 130, 246, 0.5)' },
+  purple: { primary: 'from-purple-600 via-purple-500 to-pink-500', secondary: 'rgba(147, 51, 234, 0.5)', glow: 'rgba(147, 51, 234, 0.5)' },
+  red: { primary: 'from-red-500 via-red-400 to-orange-400', secondary: 'rgba(239, 68, 68, 0.5)', glow: 'rgba(239, 68, 68, 0.5)' },
+  green: { primary: 'from-green-500 via-emerald-400 to-teal-400', secondary: 'rgba(34, 197, 94, 0.5)', glow: 'rgba(34, 197, 94, 0.5)' },
+  orange: { primary: 'from-orange-500 via-amber-400 to-yellow-400', secondary: 'rgba(249, 115, 22, 0.5)', glow: 'rgba(249, 115, 22, 0.5)' },
+  pink: { primary: 'from-pink-500 via-rose-400 to-fuchsia-400', secondary: 'rgba(236, 72, 153, 0.5)', glow: 'rgba(236, 72, 153, 0.5)' }
+};
 
 export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const {
+    connectionState,
+    connect,
+    disconnect,
+    outputAnalyser,
+    isMuted,
+    toggleMute,
+    isScreenSharing,
+    startScreenShare,
+    stopScreenShare,
+    messages,
+    isChatVisible,
+    setIsChatVisible,
+    sendTextMessage,
+    isModelsVisible,
+    setIsModelsVisible,
+    currentModel,
+    switchModel,
+    isModelTransitioning,
+    currentEmote,
+    currentTheme,
+    isSpeaking,
+    transcript,
+    AVAILABLE_MODELS
+  } = useLiveApi();
 
-  useEffect(() => {
-    synthRef.current = window.speechSynthesis;
-    
-    return () => {
-      disconnect();
-    };
-  }, []);
+  const isConnected = connectionState === ConnectionState.CONNECTED;
+  const isConnecting = connectionState === ConnectionState.CONNECTING;
+  const isListening = isConnected && !isMuted && !isSpeaking;
 
-  const setupAudioAnalyser = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      
-      audioContextRef.current = new AudioContext();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      
-      sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      sourceRef.current.connect(analyserRef.current);
-    } catch (error) {
-      console.error("Error setting up audio analyser:", error);
-    }
-  };
-
-  const setupSpeechRecognition = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Speech recognition not supported in this browser");
-      return null;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "he-IL"; // Hebrew, will auto-detect other languages
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (interimTranscript) {
-        setTranscript(interimTranscript);
-      }
-
-      if (finalTranscript) {
-        setTranscript(finalTranscript);
-        handleUserSpeech(finalTranscript);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error !== "no-speech") {
-        toast.error("Speech recognition error: " + event.error);
-      }
-    };
-
-    recognition.onend = () => {
-      if (isConnected && !isMuted && !isSpeaking) {
-        recognition.start();
-      }
-    };
-
-    return recognition;
-  };
-
-  const handleUserSpeech = async (text: string) => {
-    if (!text.trim()) return;
-
-    const userMessage: Message = { role: "user", content: text };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setIsListening(false);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("voice-session", {
-        body: { messages: newMessages }
-      });
-
-      if (error) {
-        console.error("Voice session error:", error);
-        toast.error("Failed to get response");
-        return;
-      }
-
-      const responseText = data?.response || "";
-      if (responseText) {
-        const assistantMessage: Message = { role: "assistant", content: responseText };
-        setMessages(prev => [...prev, assistantMessage]);
-        speak(responseText);
-      }
-    } catch (error) {
-      console.error("Error getting AI response:", error);
-      toast.error("Error communicating with Deta");
-    }
-  };
-
-  const speak = (text: string) => {
-    if (!synthRef.current) return;
-
-    synthRef.current.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = text.match(/[\u0590-\u05FF]/) ? "he-IL" : "en-US";
-    utterance.rate = 1;
-    utterance.pitch = 1;
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setIsListening(true);
-      if (recognitionRef.current && isConnected && !isMuted) {
-        try {
-          recognitionRef.current.start();
-        } catch (e) {
-          // Already started
-        }
-      }
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-    };
-
-    synthRef.current.speak(utterance);
-  };
-
-  const connect = async () => {
-    setIsConnecting(true);
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Please login to use voice chat");
-        setIsConnecting(false);
-        return;
-      }
-
-      await setupAudioAnalyser();
-      recognitionRef.current = setupSpeechRecognition();
-      
-      if (!recognitionRef.current) {
-        setIsConnecting(false);
-        return;
-      }
-
-      setIsConnected(true);
-      setIsConnecting(false);
-      setIsListening(true);
-      
-      recognitionRef.current.start();
-      
-      // Initial greeting
-      speak("שלום! אני דטא, איך אני יכול לעזור?");
-      
-      toast.success("Voice connected");
-    } catch (error) {
-      console.error("Connection error:", error);
-      toast.error("Failed to connect voice");
-      setIsConnecting(false);
-    }
-  };
-
-  const disconnect = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-    if (synthRef.current) {
-      synthRef.current.cancel();
-    }
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-      sourceRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    analyserRef.current = null;
-    
-    setIsConnected(false);
-    setIsSpeaking(false);
-    setIsListening(false);
-    setTranscript("");
-    setMessages([]);
-  }, []);
-
-  const toggleMute = () => {
-    if (isMuted) {
-      setIsMuted(false);
-      if (recognitionRef.current && isConnected && !isSpeaking) {
-        try {
-          recognitionRef.current.start();
-        } catch (e) {
-          // Already started
-        }
-      }
-    } else {
-      setIsMuted(true);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    }
-  };
+  const currentShape = emoteShapes[currentEmote] || emoteShapes.neutral;
+  const currentColors = themeColors[currentTheme] || themeColors.default;
 
   const handleClose = () => {
     disconnect();
@@ -298,14 +83,34 @@ export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center"
+        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center"
       >
+        {/* Model Transition Overlay */}
+        <AnimatePresence>
+          {isModelTransitioning && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[60] bg-black/95 flex items-center justify-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full"
+              />
+              <p className="absolute mt-32 text-primary animate-pulse">Switching model...</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-md p-8 rounded-2xl bg-card/90 border border-border/50 shadow-2xl"
+          className="relative w-full max-w-lg p-8 rounded-2xl bg-card/90 border border-border/50 shadow-2xl"
         >
+          {/* Close Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -316,61 +121,84 @@ export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
           </Button>
 
           <div className="text-center space-y-6">
-            <h2 className="text-2xl font-bold">Deta Voice</h2>
-            <p className="text-sm text-muted-foreground">
-              Talk with Deta AI using your voice
-            </p>
+            <div>
+              <h2 className="text-2xl font-bold">Deta Voice</h2>
+              <p className="text-sm text-muted-foreground">
+                {AVAILABLE_MODELS.find(m => m.id === currentModel)?.name || 'LPT-4'} • Real-time AI conversation
+              </p>
+            </div>
 
             {/* Audio Visualizer */}
-            <div className="relative mx-auto w-full">
+            <div className="relative mx-auto w-full h-16">
               <AudioVisualizer 
-                analyser={analyserRef.current} 
+                analyser={outputAnalyser} 
                 isActive={isConnected && (isListening || isSpeaking)}
                 color={isSpeaking ? "#a855f7" : "#38bdf8"}
               />
             </div>
 
-            {/* Orb Animation */}
-            <div className="relative mx-auto w-24 h-24">
+            {/* Animated Orb */}
+            <div className="relative mx-auto w-32 h-32">
               <motion.div
                 animate={{
-                  scale: isSpeaking ? [1, 1.2, 1] : isListening ? [1, 1.05, 1] : 1,
+                  scale: isSpeaking ? [currentShape.scale, currentShape.scale * 1.15, currentShape.scale] : isListening ? [currentShape.scale, currentShape.scale * 1.05, currentShape.scale] : currentShape.scale,
                   opacity: isConnected ? 1 : 0.5,
+                  borderRadius: currentShape.borderRadius,
+                  rotate: currentShape.rotate,
                 }}
                 transition={{
                   duration: isSpeaking ? 0.3 : 2,
-                  repeat: Infinity,
+                  repeat: isSpeaking || isListening ? Infinity : 0,
                   ease: "easeInOut"
                 }}
-                className="absolute inset-0 rounded-full bg-gradient-to-br from-primary via-primary/70 to-secondary"
+                className={cn(
+                  "absolute inset-0 bg-gradient-to-br",
+                  currentColors.primary
+                )}
                 style={{
                   boxShadow: isConnected 
-                    ? "0 0 60px rgba(168, 85, 247, 0.5)" 
+                    ? `0 0 60px ${currentColors.glow}, 0 0 100px ${currentColors.glow}` 
                     : "none"
                 }}
               />
-              <div className="absolute inset-2 rounded-full bg-card flex items-center justify-center">
+              <motion.div 
+                animate={{ borderRadius: currentShape.borderRadius }}
+                className="absolute inset-3 bg-card flex items-center justify-center"
+              >
                 {isSpeaking ? (
-                  <Volume2 className="h-8 w-8 text-primary animate-pulse" />
+                  <Volume2 className="h-10 w-10 text-primary animate-pulse" />
+                ) : currentEmote === 'thinking' ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Cpu className="h-10 w-10 text-primary" />
+                  </motion.div>
                 ) : (
-                  <Mic className="h-8 w-8 text-muted-foreground" />
+                  <Mic className={cn(
+                    "h-10 w-10",
+                    isListening ? "text-green-500" : "text-muted-foreground"
+                  )} />
                 )}
-              </div>
+              </motion.div>
             </div>
 
             {/* Status */}
-            <div className="text-sm">
+            <div className="text-sm font-medium">
               {isConnecting && (
-                <span className="text-yellow-500">Connecting...</span>
+                <span className="text-yellow-500 animate-pulse">Connecting...</span>
               )}
-              {isConnected && isListening && !isSpeaking && (
+              {isListening && (
                 <span className="text-green-500">Listening...</span>
               )}
               {isSpeaking && (
                 <span className="text-primary">Deta is speaking...</span>
               )}
+              {isMuted && isConnected && (
+                <span className="text-orange-500">Muted</span>
+              )}
               {!isConnected && !isConnecting && (
-                <span className="text-muted-foreground">Click to connect</span>
+                <span className="text-muted-foreground">Say "Hey Deta" or click to connect</span>
               )}
             </div>
 
@@ -379,18 +207,63 @@ export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 rounded-lg bg-muted/50 text-sm text-left max-h-32 overflow-y-auto"
+                className="p-3 rounded-lg bg-muted/50 text-sm text-left max-h-24 overflow-y-auto"
               >
                 <span className="text-muted-foreground">You: </span>
                 {transcript}
               </motion.div>
             )}
 
+            {/* Chat Messages */}
+            {isChatVisible && messages.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="space-y-2 max-h-48 overflow-y-auto p-3 bg-muted/30 rounded-lg"
+              >
+                {messages.slice(-5).map(msg => (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "text-sm p-2 rounded",
+                      msg.role === 'user' ? 'bg-primary/20 text-right' : 'bg-muted'
+                    )}
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {msg.role === 'user' ? 'You' : 'Deta'}:
+                    </span>
+                    <p className="mt-1">{msg.text.slice(0, 200)}{msg.text.length > 200 ? '...' : ''}</p>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Models Selector */}
+            {isModelsVisible && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="grid grid-cols-2 gap-2 p-3 bg-muted/30 rounded-lg"
+              >
+                {AVAILABLE_MODELS.map(model => (
+                  <Button
+                    key={model.id}
+                    variant={currentModel === model.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => switchModel(model.id)}
+                    className="text-xs"
+                  >
+                    {model.name}
+                  </Button>
+                ))}
+              </motion.div>
+            )}
+
             {/* Controls */}
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-3 flex-wrap">
               {!isConnected ? (
                 <Button
-                  onClick={connect}
+                  onClick={() => connect()}
                   disabled={isConnecting}
                   size="lg"
                   className="rounded-full w-16 h-16 p-0"
@@ -405,12 +278,36 @@ export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
                     size="lg"
                     className="rounded-full w-14 h-14 p-0"
                   >
-                    {isMuted ? (
-                      <MicOff className="h-5 w-5" />
-                    ) : (
-                      <Mic className="h-5 w-5" />
-                    )}
+                    {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                   </Button>
+                  
+                  <Button
+                    onClick={() => setIsChatVisible(!isChatVisible)}
+                    variant={isChatVisible ? "default" : "outline"}
+                    size="lg"
+                    className="rounded-full w-14 h-14 p-0"
+                  >
+                    <MessageSquare className="h-5 w-5" />
+                  </Button>
+                  
+                  <Button
+                    onClick={() => setIsModelsVisible(!isModelsVisible)}
+                    variant={isModelsVisible ? "default" : "outline"}
+                    size="lg"
+                    className="rounded-full w-14 h-14 p-0"
+                  >
+                    <Cpu className="h-5 w-5" />
+                  </Button>
+
+                  <Button
+                    onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                    variant={isScreenSharing ? "default" : "outline"}
+                    size="lg"
+                    className="rounded-full w-14 h-14 p-0"
+                  >
+                    {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                  </Button>
+
                   <Button
                     onClick={disconnect}
                     variant="destructive"
@@ -424,7 +321,7 @@ export const VoiceChat = ({ isOpen, onClose }: VoiceChatProps) => {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Powered by LPT-4 (Gemini 3)
+              Powered by {AVAILABLE_MODELS.find(m => m.id === currentModel)?.name || 'LPT-4'} (Gemini 3)
             </p>
           </div>
         </motion.div>
