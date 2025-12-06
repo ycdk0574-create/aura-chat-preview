@@ -72,12 +72,12 @@ Deno.serve(async (req) => {
     }
 
     const { messages, model = "LPT-4" } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
     const GOOGLE_SEARCH_ENGINE_ID = Deno.env.get("GOOGLE_SEARCH_ENGINE_ID");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     // Fetch user's personality settings
@@ -157,18 +157,18 @@ Deno.serve(async (req) => {
 
     console.log("Image check:", { autoGenerateImage, wantsImageEditing, hasImages, lastMessageText: lastMessageText.substring(0, 100) });
 
-    // Map LPT models to actual models
-const modelMap: Record<string, string> = {
-      "LPT-1": "google/gemini-2.5-flash-lite",
-      "LPT-1.5": "google/gemini-2.5-flash-lite",
-      "LPT-2": "google/gemini-2.5-flash",
-      "LPT-2.5": "google/gemini-2.5-flash",
-      "LPT-3": "google/gemini-2.5-pro",
-      "LPT-3.5": "google/gemini-2.5-pro",
-      "LPT-4": "google/gemini-2.5-pro",
+    // Map LPT models to Gemini models
+    const modelMap: Record<string, string> = {
+      "LPT-1": "gemini-1.5-flash",
+      "LPT-1.5": "gemini-1.5-flash",
+      "LPT-2": "gemini-2.0-flash-exp",
+      "LPT-2.5": "gemini-2.0-flash-exp",
+      "LPT-3": "gemini-2.0-flash-exp",
+      "LPT-3.5": "gemini-2.0-flash-exp",
+      "LPT-4": "gemini-2.0-flash-exp",
     };
 
-    const actualModel = autoGenerateImage ? "google/gemini-2.5-flash-image-preview" : (modelMap[model] || "google/gemini-2.5-pro");
+    const actualModel = autoGenerateImage ? "gemini-2.0-flash-exp" : (modelMap[model] || "gemini-2.0-flash-exp");
     
     console.log("Selected model:", { actualModel, requestedModel: model, autoGenerateImage });
 
@@ -283,143 +283,115 @@ ${detaProfile.instructions.responses.liskasYR}
 
 Always maintain these standards in your responses! 🚀`;
 
-    // Add search tool only for non-image models
-    const tools = autoGenerateImage ? undefined : [
-      {
-        type: "function",
-        function: {
-          name: "search_google",
-          description: "Search Google for current information, recent events, or specific facts. Use this when users ask about things happening now, recent news, or information you don't have.",
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
-                description: "The search query to find information",
-              },
-            },
-            required: ["query"],
-          },
-        },
-      },
-    ];
-
-    const requestBody: any = {
-      model: actualModel,
-      messages: [
-        { 
-          role: "system", 
-          content: systemPrompt
-        },
-        ...messages,
-      ],
-      stream: true,
-    };
-
-    // Add tools only for non-image models
-    if (tools) {
-      requestBody.tools = tools;
-    }
-
-    if (autoGenerateImage) {
-      requestBody.modalities = ["image", "text"];
-      console.log("Adding image generation modalities to request");
-    }
-
-    console.log("Sending request to AI Gateway:", {
-      model: requestBody.model,
-      messagesCount: requestBody.messages.length,
-      hasModalities: !!requestBody.modalities,
-      lastMessage: requestBody.messages[requestBody.messages.length - 1]?.content?.substring(0, 100)
+    // Convert messages to Gemini format
+    const geminiContents = [];
+    
+    // Add system instruction as first user message
+    geminiContents.push({
+      role: "user",
+      parts: [{ text: systemPrompt }]
+    });
+    geminiContents.push({
+      role: "model",
+      parts: [{ text: "I understand. I am Deta AI, developed by LiskCell, and I will respond naturally in the user's language." }]
     });
 
-    // Handle tool calls (only for non-image models)
-    let finalMessages = [...messages];
-    let toolCallsNeeded = !autoGenerateImage; // Skip tool calls for image generation
-    let searchSources: any[] = [];
-    let maxIterations = 3; // Prevent infinite loops
-    let currentIteration = 0;
-
-    while (toolCallsNeeded && currentIteration < maxIterations) {
-      currentIteration++;
+    // Convert chat messages
+    for (const msg of messages) {
+      const role = msg.role === "assistant" ? "model" : "user";
       
-      try {
-        const tempResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...requestBody,
-            messages: [{ role: "system", content: systemPrompt }, ...finalMessages],
-            stream: false,
-          }),
+      if (typeof msg.content === 'string') {
+        geminiContents.push({
+          role,
+          parts: [{ text: msg.content }]
         });
-
-        if (!tempResponse.ok) {
-          console.error("Tool call response not ok:", tempResponse.status);
-          toolCallsNeeded = false;
-          break;
-        }
-
-        const tempData = await tempResponse.json();
-        const choice = tempData.choices?.[0];
-        
-        if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
-          // Add assistant message with tool calls
-          finalMessages.push(choice.message);
-
-          // Execute tool calls
-          for (const toolCall of choice.message.tool_calls) {
-            if (toolCall.function.name === "search_google") {
-              try {
-                const args = JSON.parse(toolCall.function.arguments);
-                const searchResults = await searchGoogle(args.query);
-                
-                // Store sources for later
-                if (searchResults.results) {
-                  searchSources = searchResults.results;
+      } else if (Array.isArray(msg.content)) {
+        // Handle multimodal messages
+        const parts = [];
+        for (const item of msg.content) {
+          if (item.type === 'text') {
+            parts.push({ text: item.text });
+          } else if (item.type === 'image_url') {
+            // Extract base64 from data URL
+            const dataUrl = item.image_url?.url || '';
+            if (dataUrl.startsWith('data:')) {
+              const [header, base64Data] = dataUrl.split(',');
+              const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+              parts.push({
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
                 }
-                
-                finalMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: JSON.stringify(searchResults),
-                });
-              } catch (toolError) {
-                console.error("Tool execution error:", toolError);
-                finalMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: JSON.stringify({ error: "Failed to execute search" }),
-                });
-              }
+              });
             }
           }
-        } else {
-          toolCallsNeeded = false;
         }
-      } catch (loopError) {
-        console.error("Error in tool call loop:", loopError);
-        toolCallsNeeded = false;
+        if (parts.length > 0) {
+          geminiContents.push({ role, parts });
+        }
       }
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...requestBody,
-        messages: [{ role: "system", content: systemPrompt }, ...finalMessages],
-      }),
+    // Handle search before main response
+    let searchSources: any[] = [];
+    const needsSearch = lastMessageText.includes('חפש') || 
+                        lastMessageText.includes('search') || 
+                        lastMessageText.includes('מה קורה') ||
+                        lastMessageText.includes('חדשות') ||
+                        lastMessageText.includes('news') ||
+                        lastMessageText.includes('מזג אוויר') ||
+                        lastMessageText.includes('weather');
+
+    if (needsSearch && GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
+      const searchQuery = lastUserMessage?.content || '';
+      const searchResults = await searchGoogle(typeof searchQuery === 'string' ? searchQuery : searchQuery[0]?.text || '');
+      if (searchResults.results) {
+        searchSources = searchResults.results;
+        // Add search results to the conversation
+        geminiContents.push({
+          role: "user",
+          parts: [{ text: `Here are search results to help answer the user's question:\n${JSON.stringify(searchResults.results, null, 2)}\n\nPlease use this information to answer the user's question and cite sources.` }]
+        });
+      }
+    }
+
+    console.log("Sending request to Gemini API:", {
+      model: actualModel,
+      contentsCount: geminiContents.length,
+      lastContent: geminiContents[geminiContents.length - 1]?.parts?.[0]?.text?.substring(0, 100)
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    // Call Gemini API directly
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:streamGenerateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 8192,
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          ],
+        }),
+      }
+    );
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error("Gemini API error:", geminiResponse.status, errorText);
+      
+      if (geminiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "חרגת ממגבלת הבקשות, אנא נסה שוב מאוחר יותר." }), 
           {
@@ -428,26 +400,9 @@ Always maintain these standards in your responses! 🚀`;
           }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "נדרשת תשלום, אנא הוסף כספים למרחב העבודה שלך ב-Lovable AI." }), 
-          {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error details:", {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-        model: actualModel,
-        autoGenerateImage,
-        lastUserMessage: messages[messages.length - 1]?.content.substring(0, 100)
-      });
+      
       return new Response(
-        JSON.stringify({ error: `שגיאה בשער AI: ${errorText.substring(0, 200)}` }), 
+        JSON.stringify({ error: `שגיאה ב-Gemini API: ${errorText.substring(0, 200)}` }), 
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -455,8 +410,8 @@ Always maintain these standards in your responses! 🚀`;
       );
     }
 
-    // Create a custom stream that includes sources
-    const reader = response.body?.getReader();
+    // Transform Gemini streaming response to OpenAI-compatible SSE format
+    const reader = geminiResponse.body?.getReader();
     if (!reader) {
       return new Response(
         JSON.stringify({ error: "No response body" }), 
@@ -469,21 +424,77 @@ Always maintain these standards in your responses! 🚀`;
 
     const customStream = new ReadableStream({
       async start(controller) {
-        // First, send sources if available
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        
+        // Send sources first if available
         if (searchSources.length > 0) {
           const sourcesData = JSON.stringify({ sources: searchSources });
-          controller.enqueue(new TextEncoder().encode(`data: ${sourcesData}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${sourcesData}\n\n`));
         }
 
-        // Then pipe through the original stream
+        let buffer = '';
+        
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            controller.enqueue(value);
+            
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Try to parse JSON array from Gemini response
+            try {
+              // Gemini returns array of objects
+              const parsed = JSON.parse(buffer);
+              
+              if (Array.isArray(parsed)) {
+                for (const chunk of parsed) {
+                  const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) {
+                    // Convert to OpenAI SSE format
+                    const sseData = {
+                      choices: [{
+                        delta: { content: text },
+                        index: 0
+                      }]
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+                  }
+                }
+                buffer = '';
+              }
+            } catch {
+              // Not complete JSON yet, continue buffering
+            }
           }
+          
+          // Handle any remaining buffer
+          if (buffer.trim()) {
+            try {
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                for (const chunk of parsed) {
+                  const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) {
+                    const sseData = {
+                      choices: [{
+                        delta: { content: text },
+                        index: 0
+                      }]
+                    };
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
+                  }
+                }
+              }
+            } catch {
+              console.log("Failed to parse final buffer");
+            }
+          }
+          
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (error) {
+          console.error("Stream error:", error);
           controller.error(error);
         }
       },
