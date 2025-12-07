@@ -157,18 +157,18 @@ Deno.serve(async (req) => {
 
     console.log("Image check:", { autoGenerateImage, wantsImageEditing, hasImages, lastMessageText: lastMessageText.substring(0, 100) });
 
-    // Map LPT models to Gemini models
+    // Map LPT models to Gemini models - using stable production models
     const modelMap: Record<string, string> = {
       "LPT-1": "gemini-1.5-flash",
       "LPT-1.5": "gemini-1.5-flash",
-      "LPT-2": "gemini-2.0-flash-exp",
-      "LPT-2.5": "gemini-2.0-flash-exp",
-      "LPT-3": "gemini-2.0-flash-exp",
-      "LPT-3.5": "gemini-2.0-flash-exp",
-      "LPT-4": "gemini-2.0-flash-exp",
+      "LPT-2": "gemini-1.5-flash",
+      "LPT-2.5": "gemini-1.5-flash",
+      "LPT-3": "gemini-1.5-pro",
+      "LPT-3.5": "gemini-1.5-pro",
+      "LPT-4": "gemini-1.5-pro",
     };
 
-    const actualModel = autoGenerateImage ? "gemini-2.0-flash-exp" : (modelMap[model] || "gemini-2.0-flash-exp");
+    const actualModel = autoGenerateImage ? "gemini-1.5-pro" : (modelMap[model] || "gemini-1.5-flash");
     
     console.log("Selected model:", { actualModel, requestedModel: model, autoGenerateImage });
 
