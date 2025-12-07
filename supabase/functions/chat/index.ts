@@ -72,12 +72,12 @@ Deno.serve(async (req) => {
     }
 
     const { messages, model = "LPT-4" } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GOOGLE_SEARCH_API_KEY = Deno.env.get("GOOGLE_SEARCH_API_KEY");
     const GOOGLE_SEARCH_ENGINE_ID = Deno.env.get("GOOGLE_SEARCH_ENGINE_ID");
     
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Fetch user's personality settings
@@ -157,18 +157,18 @@ Deno.serve(async (req) => {
 
     console.log("Image check:", { autoGenerateImage, wantsImageEditing, hasImages, lastMessageText: lastMessageText.substring(0, 100) });
 
-    // Map LPT models to Gemini models - using correct model names
+    // Map LPT models to Lovable AI models
     const modelMap: Record<string, string> = {
-      "LPT-1": "gemini-1.5-flash-latest",
-      "LPT-1.5": "gemini-1.5-flash-latest",
-      "LPT-2": "gemini-1.5-flash-latest",
-      "LPT-2.5": "gemini-2.0-flash",
-      "LPT-3": "gemini-2.0-flash",
-      "LPT-3.5": "gemini-2.0-flash",
-      "LPT-4": "gemini-2.0-flash",
+      "LPT-1": "google/gemini-2.5-flash-lite",
+      "LPT-1.5": "google/gemini-2.5-flash-lite",
+      "LPT-2": "google/gemini-2.5-flash",
+      "LPT-2.5": "google/gemini-2.5-flash",
+      "LPT-3": "google/gemini-2.5-flash",
+      "LPT-3.5": "google/gemini-2.5-flash",
+      "LPT-4": "google/gemini-2.5-pro",
     };
 
-    const actualModel = autoGenerateImage ? "gemini-2.0-flash" : (modelMap[model] || "gemini-2.0-flash");
+    const actualModel = autoGenerateImage ? "google/gemini-2.5-flash" : (modelMap[model] || "google/gemini-2.5-flash");
     
     console.log("Selected model:", { actualModel, requestedModel: model, autoGenerateImage });
 
@@ -283,55 +283,6 @@ ${detaProfile.instructions.responses.liskasYR}
 
 Always maintain these standards in your responses! 🚀`;
 
-    // Convert messages to Gemini format
-    const geminiContents = [];
-    
-    // Add system instruction as first user message
-    geminiContents.push({
-      role: "user",
-      parts: [{ text: systemPrompt }]
-    });
-    geminiContents.push({
-      role: "model",
-      parts: [{ text: "I understand. I am Deta AI, developed by LiskCell, and I will respond naturally in the user's language." }]
-    });
-
-    // Convert chat messages
-    for (const msg of messages) {
-      const role = msg.role === "assistant" ? "model" : "user";
-      
-      if (typeof msg.content === 'string') {
-        geminiContents.push({
-          role,
-          parts: [{ text: msg.content }]
-        });
-      } else if (Array.isArray(msg.content)) {
-        // Handle multimodal messages
-        const parts = [];
-        for (const item of msg.content) {
-          if (item.type === 'text') {
-            parts.push({ text: item.text });
-          } else if (item.type === 'image_url') {
-            // Extract base64 from data URL
-            const dataUrl = item.image_url?.url || '';
-            if (dataUrl.startsWith('data:')) {
-              const [header, base64Data] = dataUrl.split(',');
-              const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-              parts.push({
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
-                }
-              });
-            }
-          }
-        }
-        if (parts.length > 0) {
-          geminiContents.push({ role, parts });
-        }
-      }
-    }
-
     // Handle search before main response
     let searchSources: any[] = [];
     const needsSearch = lastMessageText.includes('חפש') || 
@@ -342,56 +293,65 @@ Always maintain these standards in your responses! 🚀`;
                         lastMessageText.includes('מזג אוויר') ||
                         lastMessageText.includes('weather');
 
+    // Prepare messages in OpenAI format for Lovable AI Gateway
+    const apiMessages: any[] = [
+      { role: "system", content: systemPrompt }
+    ];
+
+    // Convert messages to OpenAI format (handles multimodal content)
+    for (const msg of messages) {
+      if (typeof msg.content === 'string') {
+        apiMessages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      } else if (Array.isArray(msg.content)) {
+        // Multimodal message with images
+        apiMessages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    }
+
+    // Add search results if needed
     if (needsSearch && GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
       const searchQuery = lastUserMessage?.content || '';
       const searchResults = await searchGoogle(typeof searchQuery === 'string' ? searchQuery : searchQuery[0]?.text || '');
       if (searchResults.results) {
         searchSources = searchResults.results;
-        // Add search results to the conversation
-        geminiContents.push({
+        apiMessages.push({
           role: "user",
-          parts: [{ text: `Here are search results to help answer the user's question:\n${JSON.stringify(searchResults.results, null, 2)}\n\nPlease use this information to answer the user's question and cite sources.` }]
+          content: `Here are search results to help answer the user's question:\n${JSON.stringify(searchResults.results, null, 2)}\n\nPlease use this information to answer the user's question and cite sources.`
         });
       }
     }
 
-    console.log("Sending request to Gemini API:", {
+    console.log("Sending request to Lovable AI Gateway:", {
       model: actualModel,
-      contentsCount: geminiContents.length,
-      lastContent: geminiContents[geminiContents.length - 1]?.parts?.[0]?.text?.substring(0, 100)
+      messagesCount: apiMessages.length,
+      lastMessage: apiMessages[apiMessages.length - 1]?.content?.substring?.(0, 100) || 'multimodal'
     });
 
-    // Call Gemini API directly
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:streamGenerateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: geminiContents,
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 8192,
-          },
-          safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-          ],
-        }),
-      }
-    );
+    // Call Lovable AI Gateway
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: actualModel,
+        messages: apiMessages,
+        stream: true,
+      }),
+    });
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", geminiResponse.status, errorText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Lovable AI Gateway error:", response.status, errorText);
       
-      if (geminiResponse.status === 429) {
+      if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "חרגת ממגבלת הבקשות, אנא נסה שוב מאוחר יותר." }), 
           {
@@ -400,9 +360,19 @@ Always maintain these standards in your responses! 🚀`;
           }
         );
       }
+
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "נדרש תשלום, אנא הוסף קרדיטים לחשבון." }), 
+          {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
       
       return new Response(
-        JSON.stringify({ error: `שגיאה ב-Gemini API: ${errorText.substring(0, 200)}` }), 
+        JSON.stringify({ error: `שגיאה ב-AI Gateway: ${errorText.substring(0, 200)}` }), 
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -410,8 +380,8 @@ Always maintain these standards in your responses! 🚀`;
       );
     }
 
-    // Transform Gemini streaming response to OpenAI-compatible SSE format
-    const reader = geminiResponse.body?.getReader();
+    // Stream the response directly (Lovable AI Gateway already returns OpenAI-compatible SSE)
+    const reader = response.body?.getReader();
     if (!reader) {
       return new Response(
         JSON.stringify({ error: "No response body" }), 
@@ -433,65 +403,15 @@ Always maintain these standards in your responses! 🚀`;
           controller.enqueue(encoder.encode(`data: ${sourcesData}\n\n`));
         }
 
-        let buffer = '';
-        
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Try to parse JSON array from Gemini response
-            try {
-              // Gemini returns array of objects
-              const parsed = JSON.parse(buffer);
-              
-              if (Array.isArray(parsed)) {
-                for (const chunk of parsed) {
-                  const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
-                  if (text) {
-                    // Convert to OpenAI SSE format
-                    const sseData = {
-                      choices: [{
-                        delta: { content: text },
-                        index: 0
-                      }]
-                    };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
-                  }
-                }
-                buffer = '';
-              }
-            } catch {
-              // Not complete JSON yet, continue buffering
-            }
+            // Forward the SSE data directly
+            controller.enqueue(value);
           }
           
-          // Handle any remaining buffer
-          if (buffer.trim()) {
-            try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                for (const chunk of parsed) {
-                  const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
-                  if (text) {
-                    const sseData = {
-                      choices: [{
-                        delta: { content: text },
-                        index: 0
-                      }]
-                    };
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(sseData)}\n\n`));
-                  }
-                }
-              }
-            } catch {
-              console.log("Failed to parse final buffer");
-            }
-          }
-          
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (error) {
           console.error("Stream error:", error);
